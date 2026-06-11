@@ -13,10 +13,15 @@ html,body{margin:0;padding:0;background:#f3f4f6;color:var(--text);font-family:Ca
 header{margin-bottom:16px;display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}
 h1{margin:0;font-size:22px;font-weight:600}
 .sub{color:var(--muted);font-size:13px;margin-top:2px}
+.meta{font-size:12px;color:var(--muted);margin-top:6px}
+.meta b{color:#1f2937;font-weight:600}
 .toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 button{background:#fff;border:1px solid var(--border);border-radius:6px;padding:6px 12px;font-size:13px;cursor:pointer;font-family:inherit}
 button:hover{background:#f3f4f6}
 button.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+button.fetch-btn{background:#0ea5e9;color:#fff;border-color:#0ea5e9}
+button.fetch-btn:hover{background:#0284c7}
+button:disabled{opacity:.5;cursor:not-allowed}
 .status{font-size:12px;color:var(--muted)}
 .status.ok{color:var(--ok)} .status.err{color:var(--err)}
 .card{background:#fff;border:1px solid var(--border);border-radius:6px;padding:14px 18px;margin-bottom:16px;box-shadow:0 1px 2px rgba(0,0,0,.04)}
@@ -43,6 +48,8 @@ select,input[type=text],input[type=date]{background:#fff;color:var(--text);borde
 footer{color:var(--muted);font-size:12px;text-align:center;margin-top:18px}
 .error-banner{background:#fee2e2;border:1px solid #fca5a5;color:#7f1d1d;padding:10px 14px;border-radius:6px;font-size:13px;margin-bottom:12px;display:none}
 .error-banner.visible{display:block}
+.info-banner{background:#dbeafe;border:1px solid #93c5fd;color:#1e3a8a;padding:10px 14px;border-radius:6px;font-size:13px;margin-bottom:12px;display:none}
+.info-banner.visible{display:block}
 .spinner{display:inline-block;width:14px;height:14px;border:2px solid #d1d5db;border-top-color:var(--accent);border-radius:50%;animation:sp 1s linear infinite;vertical-align:-2px;margin-right:6px}
 @keyframes sp{to{transform:rotate(360deg)}}
 table{width:100%;border-collapse:collapse;font-size:12.5px}
@@ -52,75 +59,371 @@ thead th{color:var(--muted);font-weight:600;font-size:11px;text-transform:upperc
 .scroll{max-height:420px;overflow:auto;border-radius:6px;border:1px solid var(--border)}
 .filter-summary{font-size:12px;color:var(--muted);margin-top:8px}
 .filter-summary b{color:var(--accent);font-weight:600}
-dialog{border:1px solid var(--border);border-radius:8px;padding:18px;max-width:560px;font-family:inherit}
-dialog::backdrop{background:rgba(0,0,0,.4)}
-dialog h2{margin:0 0 8px;font-size:16px}
-dialog p{font-size:13px;color:#374151;margin:8px 0}
 </style>
 </head>
 <body>
 <div class="wrap">
+
 <header>
-<div><h1>DRS göngyöleg dashboard</h1><div class="sub">Szűrhető bolt és időszak szerint, élő adatok a Sheets-ből.</div></div>
-<div class="toolbar"><span class="status" id="status">⏳ Betöltés…</span><button id="refreshBtn">↻ Frissítés</button><button id="settingsBtn">⚙ Forrás</button></div>
+  <div>
+    <h1>DRS göngyöleg dashboard</h1>
+    <div class="sub">Szűrhető bolt és időszak szerint, élő adatok a Sheets-ből.</div>
+    <div class="meta" id="metaInfo">Adatok frissítve: <b id="metaLastUpdate">betöltés…</b> • Utolsó adat napja: <b id="metaLastData">–</b></div>
+  </div>
+  <div class="toolbar">
+    <span class="status" id="status">⏳ Betöltés…</span>
+    <button id="fetchFreshBtn" class="fetch-btn" title="Letölti a legfrissebb adatokat az Envipco-ból">🔄 Friss adat letöltése</button>
+    <button id="refreshBtn" title="Újratölti a Sheets-ből">↻ Frissítés</button>
+  </div>
 </header>
+
 <div class="error-banner" id="errBanner"></div>
+<div class="info-banner" id="infoBanner"></div>
+
 <div class="card">
-<h2 style="margin:0 0 12px;font-size:15px;color:var(--accent)">Lekérdezés</h2>
-<div class="filter-row">
-<div class="field"><label>Bolt</label><select id="storePick"><option value="all">Összes bolt</option></select></div>
-<div class="field"><label>Kezdő dátum</label><input type="date" id="fromDate" /></div>
-<div class="field"><label>Záró dátum</label><input type="date" id="toDate" /></div>
-<div class="field"><label>&nbsp;</label><button id="applyFilter" class="primary" style="width:100%">Lekérdezés</button></div>
+  <h2 style="margin:0 0 12px;font-size:15px;color:var(--accent)">Lekérdezés</h2>
+  <div class="filter-row">
+    <div class="field"><label>Bolt</label><select id="storePick"><option value="all">Összes bolt</option></select></div>
+    <div class="field"><label>Kezdő dátum</label><input type="date" id="fromDate" /></div>
+    <div class="field"><label>Záró dátum</label><input type="date" id="toDate" /></div>
+    <div class="field"><label>&nbsp;</label><button id="applyFilter" class="primary" style="width:100%">Lekérdezés</button></div>
+  </div>
+  <div class="filter-summary" id="filterSummary"></div>
 </div>
-<div class="filter-summary" id="filterSummary"></div>
-</div>
+
 <div class="kpi-grid">
-<div class="kpi highlight"><div class="l">Összes göngyöleg</div><div class="v" id="kpi_total">–</div><div class="s" id="kpi_total_sub">a kiválasztott időszakban</div></div>
-<div class="kpi"><div class="l">PET palack</div><div class="v" id="kpi_pet">–</div><div class="s" id="kpi_pet_sub"></div></div>
-<div class="kpi"><div class="l">Alu palack</div><div class="v" id="kpi_alu">–</div><div class="s" id="kpi_alu_sub"></div></div>
-<div class="kpi"><div class="l">Üveg</div><div class="v" id="kpi_glass">–</div><div class="s" id="kpi_glass_sub"></div></div>
+  <div class="kpi highlight"><div class="l">Összes göngyöleg</div><div class="v" id="kpi_total">–</div><div class="s" id="kpi_total_sub">a kiválasztott időszakban</div></div>
+  <div class="kpi"><div class="l">PET palack</div><div class="v" id="kpi_pet">–</div><div class="s" id="kpi_pet_sub"></div></div>
+  <div class="kpi"><div class="l">Alu palack</div><div class="v" id="kpi_alu">–</div><div class="s" id="kpi_alu_sub"></div></div>
+  <div class="kpi"><div class="l">Üveg</div><div class="v" id="kpi_glass">–</div><div class="s" id="kpi_glass_sub"></div></div>
 </div>
+
 <div class="card"><div class="chart-title">Havi bontás<br><span id="t1sub" style="font-weight:400"></span></div><div class="chart-box"><canvas id="c1"></canvas></div><div class="legend"><span class="legend-item"><span class="legend-swatch" style="background:#1f5f3a"></span>Pet</span><span class="legend-item"><span class="legend-swatch" style="background:#d4a017"></span>Alu</span><span class="legend-item"><span class="legend-swatch" style="background:#2f5b9a"></span>Üveg</span></div></div>
+
 <div class="card" id="storeChartCard"><div class="chart-title">Boltonkénti összesítés<br><span id="t2sub" style="font-weight:400"></span></div><div class="chart-box tall"><canvas id="c2"></canvas></div><div class="legend"><span class="legend-item"><span class="legend-swatch" style="background:#1f5f3a"></span>Pet</span><span class="legend-item"><span class="legend-swatch" style="background:#d4a017"></span>Alu</span><span class="legend-item"><span class="legend-swatch" style="background:#2f5b9a"></span>Üveg</span></div></div>
+
 <div class="card"><div class="chart-title">Halmozott alakulás<br><span id="t3sub" style="font-weight:400"></span></div><div class="chart-box"><canvas id="c3"></canvas></div><div class="legend"><span class="legend-item"><span class="legend-swatch" style="background:#1f5f3a"></span>Pet</span><span class="legend-item"><span class="legend-swatch" style="background:#d4a017"></span>Alu</span><span class="legend-item"><span class="legend-swatch" style="background:#2f5b9a"></span>Üveg</span><span class="legend-item"><span class="legend-swatch" style="background:#22c55e"></span>Összesen</span></div></div>
+
 <div class="card"><div class="chart-title">Részletes táblázat</div><div class="scroll"><table id="dataTable"><thead></thead><tbody></tbody></table></div></div>
+
 <footer id="footer">Forrás: <span id="srcLabel">–</span></footer>
 </div>
-<dialog id="settingsDlg"><h2>Adatforrás beállítása</h2><div class="row" style="margin:10px 0"><label style="min-width:120px">Sheets ID:</label><input type="text" id="cfgId" /></div><div class="row" style="margin:10px 0"><label style="min-width:120px">Munkalap neve:</label><input type="text" id="cfgSheet" /></div><div class="row" style="justify-content:flex-end;gap:6px;margin-top:14px"><button id="cfgCancel">Mégse</button><button id="cfgSave" class="primary">Mentés &amp; betöltés</button></div></dialog>
+
 <script>
-const DEFAULTS={sheetsId:'1DMQyUaOm-9Zx8S3Zu8dZNQ1svqa50GrcnELSyIQpfCY',sheetName:'DRS göngyölegek 2026'};
+/* ============ KONFIG ============ */
+const SHEETS_ID = '1DMQyUaOm-9Zx8S3Zu8dZNQ1svqa50GrcnELSyIQpfCY';
+const SHEET_NAME = 'DRS göngyölegek 2026';
+const META_SHEET_NAME = 'Metadata';
+// Apps Script webhook URL (a meglévő /exec URL-ed) — manuális Envipco letöltéshez
+const WEBHOOK_URL = 'https://script.google.com/macros/s/AKfycbyf5RXTMi4D9HOSuDIeaVOCobkQ1m6G1dJxcrUiBrnb60-2GOzkJ0CsvJtQxU9lvTeleA/exec';
+// A trigger secret a dashboard-ban van — más mint az UPLOAD_SECRET, csak workflow-trigger jogot ad
+const TRIGGER_SECRET = '38ce698cb8cc44838040cb39fb249b78';
+
+/* ============ ÁLLANDÓK ============ */
 const MONTHS=["Január","Február","Március","Április","Május","Június","Július","Augusztus","Szeptember","Október","November","December"];
 const MONTHS_SHORT=["Jan","Feb","Már","Ápr","Máj","Jún","Júl","Aug","Sze","Okt","Nov","Dec"];
 const PET='#1f5f3a',ALU='#d4a017',GL='#2f5b9a',TOTAL='#22c55e';
-function getCfg(){return{sheetsId:localStorage.getItem('drs_sheets_id')||DEFAULTS.sheetsId,sheetName:localStorage.getItem('drs_sheet_name')||DEFAULTS.sheetName};}
-function setCfg(id,name){localStorage.setItem('drs_sheets_id',id);localStorage.setItem('drs_sheet_name',name);}
+
 const fmt=n=>Number(n||0).toLocaleString('hu-HU');
 function setStatus(t,cls){const el=document.getElementById('status');el.className='status'+(cls?' '+cls:'');el.innerHTML=t;}
-function showError(m){const b=document.getElementById('errBanner');b.textContent=m;b.classList.add('visible');}
+function showError(m){const b=document.getElementById('errBanner');b.textContent=m;b.classList.add('visible');setTimeout(()=>b.classList.remove('visible'),8000);}
+function showInfo(m,persist){const b=document.getElementById('infoBanner');b.innerHTML=m;b.classList.add('visible');if(!persist)setTimeout(()=>b.classList.remove('visible'),8000);}
 function clearError(){document.getElementById('errBanner').classList.remove('visible');}
-let lastTable=null,allStores=[],dataYear=2026;
-function loadGvizJSONP(sheetsId, sheetName, timeoutMs=15000){return new Promise((resolve, reject)=>{const cbName='__gviz_cb_'+Date.now()+'_'+Math.floor(Math.random()*1e6);const url=`https://docs.google.com/spreadsheets/d/${sheetsId}/gviz/tq?tqx=out:json;responseHandler:${cbName}&sheet=${encodeURIComponent(sheetName)}`;const s=document.createElement('script');let done=false;const cleanup=()=>{try{delete window[cbName];}catch(e){window[cbName]=undefined;}s.remove();};window[cbName]=(data)=>{done=true;try{resolve(data);}finally{cleanup();}};s.onerror=()=>{if(!done){done=true;cleanup();reject(new Error('Nem sikerült a Google-t elérni.'));}};s.src=url;document.head.appendChild(s);setTimeout(()=>{if(!done){done=true;cleanup();reject(new Error('Időtúllépés.'));}}, timeoutMs);});}
-async function fetchSheet(){clearError();const {sheetsId,sheetName}=getCfg();setStatus('<span class="spinner"></span>Betöltés…');document.getElementById('srcLabel').textContent=sheetName+' • '+sheetsId.slice(0,8)+'…';try{const data=await loadGvizJSONP(sheetsId,sheetName);if(!data||data.status==='error'){const msg=data&&data.errors?data.errors.map(e=>e.detailed_message||e.message).join(' / '):'Ismeretlen hiba';setStatus('❌ Hiba','err');showError('Sheets hiba: '+msg);return null;}lastTable=data.table;return data.table;}catch(e){setStatus('❌ Hiba','err');showError(e.message);return null;}}
+function clearInfo(){document.getElementById('infoBanner').classList.remove('visible');}
+
+let allStores=[], dataYear=2026;
+
+/* ============ JSONP HÍVÁS ============ */
+function loadGvizJSONP(sheetName, timeoutMs=15000){
+  return new Promise((resolve, reject)=>{
+    const cbName='__gviz_cb_'+Date.now()+'_'+Math.floor(Math.random()*1e6);
+    const url=`https://docs.google.com/spreadsheets/d/${SHEETS_ID}/gviz/tq?tqx=out:json;responseHandler:${cbName}&sheet=${encodeURIComponent(sheetName)}`;
+    const s=document.createElement('script');
+    let done=false;
+    const cleanup=()=>{try{delete window[cbName];}catch(e){window[cbName]=undefined;}s.remove();};
+    window[cbName]=(data)=>{done=true;try{resolve(data);}finally{cleanup();}};
+    s.onerror=()=>{if(!done){done=true;cleanup();reject(new Error('Nem sikerült a Google-t elérni.'));}};
+    s.src=url;document.head.appendChild(s);
+    setTimeout(()=>{if(!done){done=true;cleanup();reject(new Error('Időtúllépés.'));}}, timeoutMs);
+  });
+}
+function callAppsScriptJSONP(params, timeoutMs=30000){
+  return new Promise((resolve, reject)=>{
+    const cbName='__as_cb_'+Date.now()+'_'+Math.floor(Math.random()*1e6);
+    const qs = new URLSearchParams(params);
+    qs.set('callback', cbName);
+    const url = WEBHOOK_URL + (WEBHOOK_URL.includes('?') ? '&' : '?') + qs.toString();
+    const s=document.createElement('script');
+    let done=false;
+    const cleanup=()=>{try{delete window[cbName];}catch(e){window[cbName]=undefined;}s.remove();};
+    window[cbName]=(data)=>{done=true;try{resolve(data);}finally{cleanup();}};
+    s.onerror=()=>{if(!done){done=true;cleanup();reject(new Error('Apps Script nem érhető el.'));}};
+    s.src=url;document.head.appendChild(s);
+    setTimeout(()=>{if(!done){done=true;cleanup();reject(new Error('Időtúllépés.'));}}, timeoutMs);
+  });
+}
+
+/* ============ ADAT BETÖLTÉS ============ */
+async function fetchMainSheet(){
+  const data = await loadGvizJSONP(SHEET_NAME);
+  if(!data||data.status==='error'){
+    const msg=data&&data.errors?data.errors.map(e=>e.detailed_message||e.message).join(' / '):'Ismeretlen hiba';
+    throw new Error('Sheets hiba: '+msg);
+  }
+  return data.table;
+}
+async function fetchMetadata(){
+  try{
+    const data = await loadGvizJSONP(META_SHEET_NAME, 6000);
+    if(data && data.table && data.table.rows){
+      const rows = data.table.rows.map(r=>(r.c||[]).map(c=>c?c.f||c.v:''));
+      const out = {};
+      rows.forEach(r=>{ if(r[0]) out[r[0]] = r[1]; });
+      return out;
+    }
+  }catch(e){ console.warn('Metadata olvasás hiba:', e.message); }
+  return {};
+}
+
 function gvizCellValue(c){if(!c)return null;if(c.v==null)return null;if(typeof c.v==='string'&&/^Date\(/.test(c.v))return c.f||c.v;return c.v;}
-function parseSheet(table){const cols=table.cols||[];const rows=(table.rows||[]).map(r=>(r.c||[]).map(gvizCellValue));let sorCol=-1, boltCol=-1, pocCol=-1;cols.forEach((c,i)=>{const lab=String(c.label||'');if(sorCol<0 && /sorsz/i.test(lab)) sorCol=i;if(boltCol<0 && /boltok/i.test(lab)) boltCol=i;if(pocCol<0 && /poc\s*azonos|azonos[íi]t/i.test(lab)) pocCol=i;});const petCols=[];cols.forEach((c,i)=>{const lab=String(c.label||'');if(/(eves|éves|év|2026 év|2026 ev|havi átlag|havi atlag)/i.test(lab)) return;if(/pet\s*palack/i.test(lab)) petCols.push(i);});if(petCols.length>12) petCols.length=12;if(pocCol<0) throw new Error('Nem találom a POC oszlopot.');if(petCols.length<1) throw new Error('Nem találom a "Pet palack" oszlopokat.');const monthCols={};petCols.forEach((petIdx, monthIdx)=>{monthCols[monthIdx] = { pet: petIdx, alu: petIdx+1, glass: petIdx+2 };});const stores=[];rows.forEach(row=>{const poc=row[pocCol];if(poc==null||String(poc).trim()==='') return;if(!/^\d/.test(String(poc).trim())) return;const months=[];for(let mi=0;mi<12;mi++){const c=monthCols[mi];if(!c){months.push(null);continue;}const pet=Number(row[c.pet])||0,alu=Number(row[c.alu])||0,gl=Number(row[c.glass])||0;months.push((pet+alu+gl)>0?[pet,alu,gl]:null);}stores.push({sor: sorCol>=0 ? (row[sorCol]||'') : '',bolt: boltCol>=0 ? String(row[boltCol]||'') : '',poc: String(poc),months});});return stores;}
-function populateStoreDropdown(){const sel=document.getElementById('storePick');while(sel.options.length>1) sel.remove(1);allStores.forEach(s=>{const o=document.createElement('option');o.value=s.poc;o.textContent=`Bolt ${s.bolt} • POC ${s.poc}`;sel.appendChild(o);});}
-function initDateRange(){const mt=Array.from({length:12},()=>[0,0,0]);allStores.forEach(s=>s.months.forEach((m,i)=>{if(m){mt[i][0]+=m[0]||0;mt[i][1]+=m[1]||0;mt[i][2]+=m[2]||0;}}));const hd=mt.map(m=>m[0]+m[1]+m[2]>0);let first=-1,last=-1;hd.forEach((b,i)=>{if(b){if(first<0)first=i;last=i;}});if(first<0){first=0;last=0;}const fromY=dataYear, fromM=first+1;const toY=dataYear, toM=last+1;const lastDay=new Date(toY, toM, 0).getDate();document.getElementById('fromDate').value=`${fromY}-${String(fromM).padStart(2,'0')}-01`;document.getElementById('toDate').value=`${toY}-${String(toM).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`;}
-function getFilters(){const store=document.getElementById('storePick').value;const fromStr=document.getElementById('fromDate').value;const toStr=document.getElementById('toDate').value;const fromDate=fromStr?new Date(fromStr):null;const toDate=toStr?new Date(toStr):null;const monthsInRange=new Array(12).fill(false);for(let mi=0;mi<12;mi++){const monthStart=new Date(dataYear, mi, 1);const monthEnd=new Date(dataYear, mi+1, 0);const inRange=(!fromDate || monthEnd>=fromDate) && (!toDate || monthStart<=toDate);monthsInRange[mi]=inRange;}return {store, fromDate, toDate, monthsInRange, fromStr, toStr};}
-function applyFiltersAndRender(){const filt=getFilters();const filteredStores = filt.store==='all' ? allStores : allStores.filter(s=>s.poc===filt.store);const data = filteredStores.map(s=>({...s,months: s.months.map((m,i)=>filt.monthsInRange[i]?m:null)}));const mt=Array.from({length:12},()=>[0,0,0]);data.forEach(s=>s.months.forEach((m,i)=>{if(m){mt[i][0]+=m[0]||0;mt[i][1]+=m[1]||0;mt[i][2]+=m[2]||0;}}));const hasData=mt.map(m=>m[0]+m[1]+m[2]>0);const tPet=mt.reduce((a,m)=>a+m[0],0);const tAlu=mt.reduce((a,m)=>a+m[1],0);const tGl=mt.reduce((a,m)=>a+m[2],0);const total=tPet+tAlu+tGl;document.getElementById('kpi_total').textContent=fmt(total);document.getElementById('kpi_pet').textContent=fmt(tPet);document.getElementById('kpi_alu').textContent=fmt(tAlu);document.getElementById('kpi_glass').textContent=fmt(tGl);const pct=v=>total>0?(v/total*100).toFixed(1)+'%':'-';document.getElementById('kpi_pet_sub').textContent=pct(tPet);document.getElementById('kpi_alu_sub').textContent=pct(tAlu);document.getElementById('kpi_glass_sub').textContent=pct(tGl);const storeName=filt.store==='all'?'Összes bolt ('+allStores.length+')':(()=>{const s=allStores.find(x=>x.poc===filt.store);return s?`Bolt ${s.bolt} (POC ${s.poc})`:'?';})();const monthsInRangeNames=hasData.map((b,i)=>b?MONTHS[i]:null).filter(Boolean).join(', ');document.getElementById('filterSummary').innerHTML =`<b>${storeName}</b> &nbsp;|&nbsp; ${filt.fromStr} – ${filt.toStr} &nbsp;|&nbsp; érintett hónapok: ${monthsInRangeNames||'–'}`;document.getElementById('kpi_total_sub').textContent = storeName + ' • ' + (monthsInRangeNames || '–');renderCharts(data, mt, hasData, filt, storeName);renderTable(data, filt);}
+function parseSheet(table){
+  const cols=table.cols||[];
+  const rows=(table.rows||[]).map(r=>(r.c||[]).map(gvizCellValue));
+  let sorCol=-1, boltCol=-1, pocCol=-1;
+  cols.forEach((c,i)=>{
+    const lab=String(c.label||'');
+    if(sorCol<0 && /sorsz/i.test(lab)) sorCol=i;
+    if(boltCol<0 && /boltok/i.test(lab)) boltCol=i;
+    if(pocCol<0 && /poc\s*azonos|azonos[íi]t/i.test(lab)) pocCol=i;
+  });
+  const petCols=[];
+  cols.forEach((c,i)=>{
+    const lab=String(c.label||'');
+    if(/(eves|éves|év|2026 év|2026 ev|havi átlag|havi atlag)/i.test(lab)) return;
+    if(/pet\s*palack/i.test(lab)) petCols.push(i);
+  });
+  if(petCols.length>12) petCols.length=12;
+  if(pocCol<0) throw new Error('Nem találom a POC oszlopot.');
+  if(petCols.length<1) throw new Error('Nem találom a "Pet palack" oszlopokat.');
+
+  const monthCols={};
+  petCols.forEach((petIdx, monthIdx)=>{
+    monthCols[monthIdx] = { pet: petIdx, alu: petIdx+1, glass: petIdx+2 };
+  });
+
+  const stores=[];
+  rows.forEach(row=>{
+    const poc=row[pocCol];
+    if(poc==null||String(poc).trim()==='') return;
+    if(!/^\d/.test(String(poc).trim())) return;
+    const months=[];
+    for(let mi=0;mi<12;mi++){
+      const c=monthCols[mi];
+      if(!c){months.push(null);continue;}
+      const pet=Number(row[c.pet])||0,alu=Number(row[c.alu])||0,gl=Number(row[c.glass])||0;
+      months.push((pet+alu+gl)>0?[pet,alu,gl]:null);
+    }
+    stores.push({
+      sor: sorCol>=0 ? (row[sorCol]||'') : '',
+      bolt: boltCol>=0 ? String(row[boltCol]||'') : '',
+      poc: String(poc),
+      months
+    });
+  });
+  return stores;
+}
+
+function populateStoreDropdown(){
+  const sel=document.getElementById('storePick');
+  while(sel.options.length>1) sel.remove(1);
+  allStores.forEach(s=>{
+    const o=document.createElement('option');
+    o.value=s.poc;
+    o.textContent=`Bolt ${s.bolt} • POC ${s.poc}`;
+    sel.appendChild(o);
+  });
+}
+function initDateRange(){
+  const mt=Array.from({length:12},()=>[0,0,0]);
+  allStores.forEach(s=>s.months.forEach((m,i)=>{if(m){mt[i][0]+=m[0]||0;mt[i][1]+=m[1]||0;mt[i][2]+=m[2]||0;}}));
+  const hd=mt.map(m=>m[0]+m[1]+m[2]>0);
+  let first=-1,last=-1;
+  hd.forEach((b,i)=>{if(b){if(first<0)first=i;last=i;}});
+  if(first<0){first=0;last=0;}
+  const fromY=dataYear, fromM=first+1;
+  const toY=dataYear, toM=last+1;
+  const lastDay=new Date(toY, toM, 0).getDate();
+  document.getElementById('fromDate').value=`${fromY}-${String(fromM).padStart(2,'0')}-01`;
+  document.getElementById('toDate').value=`${toY}-${String(toM).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`;
+}
+function getFilters(){
+  const store=document.getElementById('storePick').value;
+  const fromStr=document.getElementById('fromDate').value;
+  const toStr=document.getElementById('toDate').value;
+  const fromDate=fromStr?new Date(fromStr):null;
+  const toDate=toStr?new Date(toStr):null;
+  const monthsInRange=new Array(12).fill(false);
+  for(let mi=0;mi<12;mi++){
+    const monthStart=new Date(dataYear, mi, 1);
+    const monthEnd=new Date(dataYear, mi+1, 0);
+    const inRange=(!fromDate || monthEnd>=fromDate) && (!toDate || monthStart<=toDate);
+    monthsInRange[mi]=inRange;
+  }
+  return {store, fromDate, toDate, monthsInRange, fromStr, toStr};
+}
+
+function applyFiltersAndRender(){
+  const filt=getFilters();
+  const filteredStores = filt.store==='all' ? allStores : allStores.filter(s=>s.poc===filt.store);
+  const data = filteredStores.map(s=>({...s, months: s.months.map((m,i)=>filt.monthsInRange[i]?m:null)}));
+  const mt=Array.from({length:12},()=>[0,0,0]);
+  data.forEach(s=>s.months.forEach((m,i)=>{if(m){mt[i][0]+=m[0]||0;mt[i][1]+=m[1]||0;mt[i][2]+=m[2]||0;}}));
+  const hasData=mt.map(m=>m[0]+m[1]+m[2]>0);
+  const tPet=mt.reduce((a,m)=>a+m[0],0);
+  const tAlu=mt.reduce((a,m)=>a+m[1],0);
+  const tGl=mt.reduce((a,m)=>a+m[2],0);
+  const total=tPet+tAlu+tGl;
+  document.getElementById('kpi_total').textContent=fmt(total);
+  document.getElementById('kpi_pet').textContent=fmt(tPet);
+  document.getElementById('kpi_alu').textContent=fmt(tAlu);
+  document.getElementById('kpi_glass').textContent=fmt(tGl);
+  const pct=v=>total>0?(v/total*100).toFixed(1)+'%':'-';
+  document.getElementById('kpi_pet_sub').textContent=pct(tPet);
+  document.getElementById('kpi_alu_sub').textContent=pct(tAlu);
+  document.getElementById('kpi_glass_sub').textContent=pct(tGl);
+  const storeName=filt.store==='all'?'Összes bolt ('+allStores.length+')':(()=>{const s=allStores.find(x=>x.poc===filt.store);return s?`Bolt ${s.bolt} (POC ${s.poc})`:'?';})();
+  const monthsInRangeNames=hasData.map((b,i)=>b?MONTHS[i]:null).filter(Boolean).join(', ');
+  document.getElementById('filterSummary').innerHTML =`<b>${storeName}</b> &nbsp;|&nbsp; ${filt.fromStr} – ${filt.toStr} &nbsp;|&nbsp; érintett hónapok: ${monthsInRangeNames||'–'}`;
+  document.getElementById('kpi_total_sub').textContent = storeName + ' • ' + (monthsInRangeNames || '–');
+  renderCharts(data, mt, hasData, filt, storeName);
+  renderTable(data, filt);
+}
+
 let co={};
-function renderCharts(stores, mt, hasData, filt, storeName){const activeMonthIdx = mt.map((m,i)=>hasData[i]?i:-1).filter(i=>i>=0);const labels = activeMonthIdx.map(i=>MONTHS[i]);const petArr = activeMonthIdx.map(i=>mt[i][0]);const aluArr = activeMonthIdx.map(i=>mt[i][1]);const glArr = activeMonthIdx.map(i=>mt[i][2]);const base=(extra={})=>({responsive:true,maintainAspectRatio:false,animation:false,resizeDelay:120,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`${c.dataset.label||''}: ${fmt(c.parsed.y??c.parsed.x??c.parsed)}`}}},scales:{x:{ticks:{color:'#1f2937',font:{size:11}},grid:{color:'#eee'}},y:{ticks:{color:'#1f2937',font:{size:11},callback:v=>fmt(v)},grid:{color:'#eee'},beginAtZero:true}},...extra});document.getElementById('t1sub').textContent = storeName + ' • ' + filt.fromStr + ' – ' + filt.toStr;if(co.c1) co.c1.destroy();const c1Type = labels.length <= 3 ? 'bar' : 'line';co.c1=new Chart(document.getElementById('c1'),{type:c1Type,data:{labels:labels,datasets:[c1Type==='line'?{label:'Pet',data:petArr,borderColor:PET,backgroundColor:PET,pointBackgroundColor:PET,tension:0,pointRadius:5,fill:false,borderWidth:2.5}:{label:'Pet',data:petArr,backgroundColor:PET,categoryPercentage:.7,barPercentage:.85},c1Type==='line'?{label:'Alu',data:aluArr,borderColor:ALU,backgroundColor:ALU,pointBackgroundColor:ALU,tension:0,pointRadius:5,fill:false,borderWidth:2.5}:{label:'Alu',data:aluArr,backgroundColor:ALU,categoryPercentage:.7,barPercentage:.85},c1Type==='line'?{label:'Üveg',data:glArr,borderColor:GL,backgroundColor:GL,pointBackgroundColor:GL,tension:0,pointRadius:5,fill:false,borderWidth:2.5}:{label:'Üveg',data:glArr,backgroundColor:GL,categoryPercentage:.7,barPercentage:.85},]},options:base()});const storeTotals = stores.map(s=>{let pet=0,alu=0,gl=0;s.months.forEach(m=>{if(m){pet+=m[0]||0;alu+=m[1]||0;gl+=m[2]||0;}});return {bolt:s.bolt, poc:s.poc, pet, alu, gl, total:pet+alu+gl};}).filter(s=>s.total>0).sort((a,b)=>b.total-a.total);const c2Card = document.getElementById('storeChartCard');if(filt.store==='all' && storeTotals.length>1) {c2Card.style.display='';document.getElementById('t2sub').textContent = 'Időszak: ' + filt.fromStr + ' – ' + filt.toStr + ' • ' + storeTotals.length + ' bolt rangsorolva';if(co.c2) co.c2.destroy();co.c2 = new Chart(document.getElementById('c2'),{type:'bar',data:{labels: storeTotals.map(s=>'B'+s.bolt),datasets:[{label:'Pet',data:storeTotals.map(s=>s.pet),backgroundColor:PET,categoryPercentage:.88,barPercentage:.95},{label:'Alu',data:storeTotals.map(s=>s.alu),backgroundColor:ALU,categoryPercentage:.88,barPercentage:.95},{label:'Üveg',data:storeTotals.map(s=>s.gl),backgroundColor:GL,categoryPercentage:.88,barPercentage:.95},]},options:base()});} else {c2Card.style.display='none';}let cumPet=0,cumAlu=0,cumGl=0,cumTot=0;const cumLabels=[], cumPetArr=[], cumAluArr=[], cumGlArr=[], cumTotArr=[];activeMonthIdx.forEach(i=>{cumPet+=mt[i][0]; cumAlu+=mt[i][1]; cumGl+=mt[i][2]; cumTot+=mt[i][0]+mt[i][1]+mt[i][2];cumLabels.push(MONTHS[i]);cumPetArr.push(cumPet); cumAluArr.push(cumAlu); cumGlArr.push(cumGl); cumTotArr.push(cumTot);});document.getElementById('t3sub').textContent = storeName + ' • ' + filt.fromStr + ' – ' + filt.toStr;if(co.c3) co.c3.destroy();co.c3 = new Chart(document.getElementById('c3'),{type:'line',data:{labels:cumLabels,datasets:[{label:'Pet',data:cumPetArr,borderColor:PET,pointBackgroundColor:PET,tension:.2,pointRadius:4,fill:false,borderWidth:2},{label:'Alu',data:cumAluArr,borderColor:ALU,pointBackgroundColor:ALU,tension:.2,pointRadius:4,fill:false,borderWidth:2},{label:'Üveg',data:cumGlArr,borderColor:GL,pointBackgroundColor:GL,tension:.2,pointRadius:4,fill:false,borderWidth:2},{label:'Összesen',data:cumTotArr,borderColor:TOTAL,pointBackgroundColor:TOTAL,tension:.2,pointRadius:5,fill:false,borderWidth:3},]},options:base()});}
-function renderTable(stores, filt){const thead=document.querySelector('#dataTable thead');const tbody=document.querySelector('#dataTable tbody');const visMonths = [];for(let mi=0;mi<12;mi++){if(filt.monthsInRange[mi]) visMonths.push(mi);}thead.innerHTML = '<tr><th>Bolt</th><th>POC</th>' +visMonths.map(mi=>`<th class="num">${MONTHS_SHORT[mi]}</th>`).join('') +'<th class="num">PET</th><th class="num">Alu</th><th class="num">Üveg</th><th class="num">Összes</th></tr>';const rows = stores.map(s=>{let pet=0,alu=0,gl=0;s.months.forEach(m=>{if(m){pet+=m[0]||0;alu+=m[1]||0;gl+=m[2]||0;}});const total=pet+alu+gl;const monthsHtml = visMonths.map(mi=>{const m=s.months[mi];return `<td class="num">${m?fmt((m[0]||0)+(m[1]||0)+(m[2]||0)):''}</td>`;}).join('');return {total, html:`<tr><td><b>${s.bolt}</b></td><td>${s.poc}</td>${monthsHtml}<td class="num">${fmt(pet)}</td><td class="num">${fmt(alu)}</td><td class="num">${fmt(gl)}</td><td class="num"><b>${fmt(total)}</b></td></tr>`};}).filter(r=>r.total>0).sort((a,b)=>b.total-a.total);let tPet=0,tAlu=0,tGl=0;const monthlyTotals=visMonths.map(()=>0);stores.forEach(s=>{s.months.forEach(m=>{if(m){tPet+=m[0]||0;tAlu+=m[1]||0;tGl+=m[2]||0;}});visMonths.forEach((mi,idx)=>{const m=s.months[mi];if(m)monthlyTotals[idx]+=(m[0]||0)+(m[1]||0)+(m[2]||0);});});const grand=tPet+tAlu+tGl;const sumRow=`<tr style="background:#e8f3eb;font-weight:600"><td colspan="2"><b>ÖSSZESEN</b></td>` +monthlyTotals.map(v=>`<td class="num">${v?fmt(v):''}</td>`).join('') +`<td class="num"><b>${fmt(tPet)}</b></td><td class="num"><b>${fmt(tAlu)}</b></td><td class="num"><b>${fmt(tGl)}</b></td><td class="num"><b>${fmt(grand)}</b></td></tr>`;tbody.innerHTML = rows.map(r=>r.html).join('') + sumRow;}
-async function load(){const tbl=await fetchSheet();if(!tbl)return;let stores;try{stores=parseSheet(tbl);}catch(e){setStatus('❌ Hiba','err');showError(e.message);return;}if(!stores.length){setStatus('⚠ Üres','err');showError('Nem találtam adatsort.');return;}allStores=stores;populateStoreDropdown();initDateRange();applyFiltersAndRender();const t=new Date().toLocaleTimeString('hu-HU',{hour:'2-digit',minute:'2-digit'});setStatus('✓ Frissítve: '+t+' • '+stores.length+' bolt','ok');}
+function renderCharts(stores, mt, hasData, filt, storeName){
+  const activeMonthIdx = mt.map((m,i)=>hasData[i]?i:-1).filter(i=>i>=0);
+  const labels = activeMonthIdx.map(i=>MONTHS[i]);
+  const petArr = activeMonthIdx.map(i=>mt[i][0]);
+  const aluArr = activeMonthIdx.map(i=>mt[i][1]);
+  const glArr = activeMonthIdx.map(i=>mt[i][2]);
+  const base=(extra={})=>({responsive:true,maintainAspectRatio:false,animation:false,resizeDelay:120,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`${c.dataset.label||''}: ${fmt(c.parsed.y??c.parsed.x??c.parsed)}`}}},scales:{x:{ticks:{color:'#1f2937',font:{size:11}},grid:{color:'#eee'}},y:{ticks:{color:'#1f2937',font:{size:11},callback:v=>fmt(v)},grid:{color:'#eee'},beginAtZero:true}},...extra});
+  document.getElementById('t1sub').textContent = storeName + ' • ' + filt.fromStr + ' – ' + filt.toStr;
+  if(co.c1) co.c1.destroy();
+  const c1Type = labels.length <= 3 ? 'bar' : 'line';
+  co.c1=new Chart(document.getElementById('c1'),{type:c1Type,data:{labels:labels,datasets:[
+    c1Type==='line'?{label:'Pet',data:petArr,borderColor:PET,backgroundColor:PET,pointBackgroundColor:PET,tension:0,pointRadius:5,fill:false,borderWidth:2.5}:{label:'Pet',data:petArr,backgroundColor:PET,categoryPercentage:.7,barPercentage:.85},
+    c1Type==='line'?{label:'Alu',data:aluArr,borderColor:ALU,backgroundColor:ALU,pointBackgroundColor:ALU,tension:0,pointRadius:5,fill:false,borderWidth:2.5}:{label:'Alu',data:aluArr,backgroundColor:ALU,categoryPercentage:.7,barPercentage:.85},
+    c1Type==='line'?{label:'Üveg',data:glArr,borderColor:GL,backgroundColor:GL,pointBackgroundColor:GL,tension:0,pointRadius:5,fill:false,borderWidth:2.5}:{label:'Üveg',data:glArr,backgroundColor:GL,categoryPercentage:.7,barPercentage:.85},
+  ]},options:base()});
+  const storeTotals = stores.map(s=>{let pet=0,alu=0,gl=0;s.months.forEach(m=>{if(m){pet+=m[0]||0;alu+=m[1]||0;gl+=m[2]||0;}});return {bolt:s.bolt, poc:s.poc, pet, alu, gl, total:pet+alu+gl};}).filter(s=>s.total>0).sort((a,b)=>b.total-a.total);
+  const c2Card = document.getElementById('storeChartCard');
+  if(filt.store==='all' && storeTotals.length>1) {
+    c2Card.style.display='';
+    document.getElementById('t2sub').textContent = 'Időszak: ' + filt.fromStr + ' – ' + filt.toStr + ' • ' + storeTotals.length + ' bolt rangsorolva';
+    if(co.c2) co.c2.destroy();
+    co.c2 = new Chart(document.getElementById('c2'),{type:'bar',data:{labels: storeTotals.map(s=>'B'+s.bolt),datasets:[{label:'Pet',data:storeTotals.map(s=>s.pet),backgroundColor:PET,categoryPercentage:.88,barPercentage:.95},{label:'Alu',data:storeTotals.map(s=>s.alu),backgroundColor:ALU,categoryPercentage:.88,barPercentage:.95},{label:'Üveg',data:storeTotals.map(s=>s.gl),backgroundColor:GL,categoryPercentage:.88,barPercentage:.95}]},options:base()});
+  } else { c2Card.style.display='none'; }
+  let cumPet=0,cumAlu=0,cumGl=0,cumTot=0;
+  const cumLabels=[], cumPetArr=[], cumAluArr=[], cumGlArr=[], cumTotArr=[];
+  activeMonthIdx.forEach(i=>{
+    cumPet+=mt[i][0]; cumAlu+=mt[i][1]; cumGl+=mt[i][2]; cumTot+=mt[i][0]+mt[i][1]+mt[i][2];
+    cumLabels.push(MONTHS[i]);
+    cumPetArr.push(cumPet); cumAluArr.push(cumAlu); cumGlArr.push(cumGl); cumTotArr.push(cumTot);
+  });
+  document.getElementById('t3sub').textContent = storeName + ' • ' + filt.fromStr + ' – ' + filt.toStr;
+  if(co.c3) co.c3.destroy();
+  co.c3 = new Chart(document.getElementById('c3'),{type:'line',data:{labels:cumLabels,datasets:[
+    {label:'Pet',data:cumPetArr,borderColor:PET,pointBackgroundColor:PET,tension:.2,pointRadius:4,fill:false,borderWidth:2},
+    {label:'Alu',data:cumAluArr,borderColor:ALU,pointBackgroundColor:ALU,tension:.2,pointRadius:4,fill:false,borderWidth:2},
+    {label:'Üveg',data:cumGlArr,borderColor:GL,pointBackgroundColor:GL,tension:.2,pointRadius:4,fill:false,borderWidth:2},
+    {label:'Összesen',data:cumTotArr,borderColor:TOTAL,pointBackgroundColor:TOTAL,tension:.2,pointRadius:5,fill:false,borderWidth:3},
+  ]},options:base()});
+}
+
+function renderTable(stores, filt){
+  const thead=document.querySelector('#dataTable thead');
+  const tbody=document.querySelector('#dataTable tbody');
+  const visMonths = [];
+  for(let mi=0;mi<12;mi++){ if(filt.monthsInRange[mi]) visMonths.push(mi); }
+  thead.innerHTML = '<tr><th>Bolt</th><th>POC</th>' + visMonths.map(mi=>`<th class="num">${MONTHS_SHORT[mi]}</th>`).join('') + '<th class="num">PET</th><th class="num">Alu</th><th class="num">Üveg</th><th class="num">Összes</th></tr>';
+  const rows = stores.map(s=>{
+    let pet=0,alu=0,gl=0;
+    s.months.forEach(m=>{if(m){pet+=m[0]||0;alu+=m[1]||0;gl+=m[2]||0;}});
+    const total=pet+alu+gl;
+    const monthsHtml = visMonths.map(mi=>{const m=s.months[mi];return `<td class="num">${m?fmt((m[0]||0)+(m[1]||0)+(m[2]||0)):''}</td>`;}).join('');
+    return {total, html:`<tr><td><b>${s.bolt}</b></td><td>${s.poc}</td>${monthsHtml}<td class="num">${fmt(pet)}</td><td class="num">${fmt(alu)}</td><td class="num">${fmt(gl)}</td><td class="num"><b>${fmt(total)}</b></td></tr>`};
+  }).filter(r=>r.total>0).sort((a,b)=>b.total-a.total);
+  let tPet=0,tAlu=0,tGl=0;
+  const monthlyTotals=visMonths.map(()=>0);
+  stores.forEach(s=>{
+    s.months.forEach(m=>{if(m){tPet+=m[0]||0;tAlu+=m[1]||0;tGl+=m[2]||0;}});
+    visMonths.forEach((mi,idx)=>{const m=s.months[mi];if(m)monthlyTotals[idx]+=(m[0]||0)+(m[1]||0)+(m[2]||0);});
+  });
+  const grand=tPet+tAlu+tGl;
+  const sumRow=`<tr style="background:#e8f3eb;font-weight:600"><td colspan="2"><b>ÖSSZESEN</b></td>` +
+    monthlyTotals.map(v=>`<td class="num">${v?fmt(v):''}</td>`).join('') +
+    `<td class="num"><b>${fmt(tPet)}</b></td><td class="num"><b>${fmt(tAlu)}</b></td><td class="num"><b>${fmt(tGl)}</b></td><td class="num"><b>${fmt(grand)}</b></td></tr>`;
+  tbody.innerHTML = rows.map(r=>r.html).join('') + sumRow;
+}
+
+/* ============ FŐ BETÖLTÉS ============ */
+async function load(){
+  clearError();
+  setStatus('<span class="spinner"></span>Betöltés…');
+  document.getElementById('srcLabel').textContent = SHEET_NAME + ' • ' + SHEETS_ID.slice(0,8) + '…';
+
+  // Metadata
+  const meta = await fetchMetadata();
+  document.getElementById('metaLastUpdate').textContent = meta.last_update || '–';
+  document.getElementById('metaLastData').textContent = meta.last_data_date || '–';
+
+  // Adat
+  try{
+    const tbl = await fetchMainSheet();
+    let stores;
+    try{ stores = parseSheet(tbl); }
+    catch(e){ setStatus('❌ Hiba','err'); showError(e.message); return; }
+    if(!stores.length){ setStatus('⚠ Üres','err'); showError('Nem találtam adatsort.'); return; }
+    allStores = stores;
+    populateStoreDropdown();
+    initDateRange();
+    applyFiltersAndRender();
+    const t = new Date().toLocaleTimeString('hu-HU',{hour:'2-digit',minute:'2-digit'});
+    setStatus('✓ Frissítve: '+t+' • '+stores.length+' bolt','ok');
+  } catch(e){ setStatus('❌ Hiba','err'); showError(e.message); }
+}
+
+/* ============ MANUÁLIS ENVIPCO LETÖLTÉS ============ */
+async function triggerFreshFetch(){
+  const btn = document.getElementById('fetchFreshBtn');
+  btn.disabled = true;
+  const origText = btn.textContent;
+  btn.innerHTML = '<span class="spinner"></span>Indítás…';
+  clearError(); clearInfo();
+  try{
+    const r = await callAppsScriptJSONP({ command: 'trigger_fetch', secret: TRIGGER_SECRET });
+    if(r.ok){
+      showInfo('✓ Workflow elindult. <b>~3 perc múlva</b> érkeznek a friss adatok. A dashboard automatikusan újratölt 3 perc múlva.', true);
+      btn.innerHTML = '⏳ Folyamatban (3 perc)…';
+      setTimeout(()=>{ clearInfo(); btn.disabled=false; btn.innerHTML = origText; load(); }, 3 * 60 * 1000);
+    } else {
+      showError('Trigger hiba: ' + (r.error || JSON.stringify(r)));
+      btn.disabled = false; btn.innerHTML = origText;
+    }
+  } catch(e){
+    showError('Trigger hívás hiba: ' + e.message);
+    btn.disabled = false; btn.innerHTML = origText;
+  }
+}
+
+/* ============ EVENT LISTENER-EK ============ */
 document.getElementById('applyFilter').onclick=applyFiltersAndRender;
 document.getElementById('storePick').onchange=applyFiltersAndRender;
 document.getElementById('fromDate').onchange=applyFiltersAndRender;
 document.getElementById('toDate').onchange=applyFiltersAndRender;
-const dlg=document.getElementById('settingsDlg');
-document.getElementById('settingsBtn').onclick=()=>{const cfg=getCfg();document.getElementById('cfgId').value=cfg.sheetsId;document.getElementById('cfgSheet').value=cfg.sheetName;dlg.showModal();};
-document.getElementById('cfgCancel').onclick=()=>dlg.close();
-document.getElementById('cfgSave').onclick=()=>{const id=document.getElementById('cfgId').value.trim(),sn=document.getElementById('cfgSheet').value.trim();if(!id||!sn)return;setCfg(id,sn);dlg.close();load();};
 document.getElementById('refreshBtn').onclick=load;
+document.getElementById('fetchFreshBtn').onclick=triggerFreshFetch;
+
 load();
 </script>
 </body>
