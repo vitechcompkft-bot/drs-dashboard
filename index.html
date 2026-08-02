@@ -11,61 +11,37 @@
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
 :root{
-  --brand:#1f5f3a;
-  --brand-dark:#164a2c;
-  --brand-light:#e8f3eb;
-  --pet:#1f5f3a;
-  --alu:#d4a017;
-  --glass:#2f5b9a;
-  --total:#22c55e;
-  --bg:#f7f8fa;
-  --surface:#ffffff;
-  --border:#e5e7eb;
-  --border-strong:#d1d5db;
-  --text:#0f172a;
-  --text-muted:#64748b;
-  --text-subtle:#94a3b8;
-  --danger:#dc2626;
-  --danger-bg:#fee2e2;
-  --info:#0ea5e9;
-  --info-bg:#e0f2fe;
-  --success:#059669;
-  --success-bg:#d1fae5;
+  --brand:#1f5f3a;--brand-dark:#164a2c;--brand-light:#e8f3eb;
+  --pet:#1f5f3a;--alu:#d4a017;--glass:#2f5b9a;--total:#22c55e;
+  --bg:#f7f8fa;--surface:#ffffff;--border:#e5e7eb;--border-strong:#d1d5db;
+  --text:#0f172a;--text-muted:#64748b;--text-subtle:#94a3b8;
+  --danger:#dc2626;--danger-bg:#fee2e2;--info:#0ea5e9;--info-bg:#e0f2fe;
+  --success:#059669;--success-bg:#d1fae5;
   --shadow-sm:0 1px 2px rgba(15,23,42,.04);
   --shadow-md:0 4px 8px -2px rgba(15,23,42,.06), 0 2px 4px -2px rgba(15,23,42,.04);
-  --shadow-lg:0 12px 24px -8px rgba(15,23,42,.08), 0 4px 8px -4px rgba(15,23,42,.04);
-  --radius-sm:6px;
-  --radius:10px;
-  --radius-lg:14px;
+  --radius-sm:6px;--radius:10px;--radius-lg:14px;
 }
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{background:var(--bg);color:var(--text);font-family:'Inter','-apple-system','BlinkMacSystemFont','Segoe UI','Roboto',sans-serif;font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
-
-/* ============ TOP NAV ============ */
 .topnav{background:var(--brand);color:#fff;box-shadow:var(--shadow-md);position:sticky;top:0;z-index:100}
 .topnav-inner{max-width:1440px;margin:0 auto;padding:14px 24px;display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}
 .topnav-brand{display:flex;align-items:center;gap:12px}
 .topnav-logo{width:36px;height:36px;background:rgba(255,255,255,.15);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700}
 .topnav-title{font-weight:600;font-size:15px;line-height:1.2}
 .topnav-subtitle{font-size:12px;opacity:.75;line-height:1.2;margin-top:2px}
-.topnav-meta{display:flex;gap:16px;align-items:center;font-size:12px;flex-wrap:wrap}
+.topnav-meta{display:flex;gap:10px;align-items:center;font-size:12px;flex-wrap:wrap}
 .topnav-meta .item{display:flex;align-items:center;gap:6px;padding:6px 10px;background:rgba(255,255,255,.1);border-radius:6px}
 .topnav-meta .item b{color:#fff;font-weight:600}
 .topnav-meta .label{opacity:.75}
-
-/* ============ MAIN ============ */
 .wrap{max-width:1440px;margin:0 auto;padding:24px}
-
-/* ============ CARDS ============ */
 .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);box-shadow:var(--shadow-sm);margin-bottom:16px;overflow:hidden}
-.card-header{display:flex;justify-content:space-between;align-items:center;padding:14px 20px;border-bottom:1px solid var(--border);background:var(--surface)}
-.card-header h2{font-size:14px;font-weight:600;color:var(--text);letter-spacing:-.01em}
-.card-header .sub{font-size:12px;color:var(--text-muted);margin-top:2px;font-weight:400}
-.card-header-actions{display:flex;gap:8px;align-items:center}
+/* CÍM KÖZÉPRE, gombok abszolút a jobb szélen */
+.card-header{position:relative;padding:14px 70px;border-bottom:1px solid var(--border);background:var(--surface);text-align:center}
+.card-header h2{font-size:15px;font-weight:600;color:var(--text);letter-spacing:-.01em}
+.card-header .sub{font-size:12px;color:var(--text-muted);margin-top:3px;font-weight:400}
+.card-header-actions{position:absolute;right:12px;top:50%;transform:translateY(-50%);display:flex;gap:6px;align-items:center}
 .card-body{padding:18px 20px}
 .card-body.pt0{padding-top:0}
-
-/* ============ BUTTONS ============ */
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;background:var(--surface);color:var(--text);border:1px solid var(--border-strong);border-radius:var(--radius-sm);padding:7px 14px;font-size:13px;font-weight:500;cursor:pointer;font-family:inherit;transition:all .15s;line-height:1;white-space:nowrap}
 .btn:hover:not(:disabled){background:#f3f4f6;border-color:#9ca3af}
 .btn:active:not(:disabled){transform:translateY(1px)}
@@ -80,17 +56,13 @@ html,body{background:var(--bg);color:var(--text);font-family:'Inter','-apple-sys
 .btn-icon{padding:7px 9px}
 .btn-icon svg{width:15px;height:15px}
 .btn-sm{padding:5px 10px;font-size:12px}
-
-/* ============ FILTER ============ */
 .filter-grid{display:grid;grid-template-columns:1.5fr 1fr 1fr auto;gap:12px;align-items:end}
-@media (max-width:900px){.filter-grid{grid-template-columns:1fr 1fr;grid-auto-rows:auto}}
+@media (max-width:900px){.filter-grid{grid-template-columns:1fr 1fr;grid-auto-rows:auto}.card-header{padding:14px 50px}.topnav-meta{font-size:11px}}
 .field label{display:block;font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;font-weight:600;margin-bottom:6px}
 .field select,.field input{width:100%;background:var(--surface);color:var(--text);border:1px solid var(--border-strong);border-radius:var(--radius-sm);padding:8px 11px;font-size:13px;font-family:inherit;transition:border-color .15s,box-shadow .15s}
 .field select:focus,.field input:focus{outline:0;border-color:var(--brand);box-shadow:0 0 0 3px rgba(31,95,58,.1)}
-.filter-summary{margin-top:12px;padding:10px 12px;background:var(--brand-light);border-radius:var(--radius-sm);font-size:12px;color:var(--text-muted)}
+.filter-summary{margin-top:12px;padding:10px 12px;background:var(--brand-light);border-radius:var(--radius-sm);font-size:12px;color:var(--text-muted);text-align:center}
 .filter-summary b{color:var(--brand);font-weight:600}
-
-/* ============ KPI ============ */
 .kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
 @media (max-width:900px){.kpi-grid{grid-template-columns:repeat(2,1fr)}}
 .kpi{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px 18px;box-shadow:var(--shadow-sm);position:relative;overflow:hidden}
@@ -102,42 +74,27 @@ html,body{background:var(--bg);color:var(--text);font-family:'Inter','-apple-sys
 .kpi-sub{font-size:11px;color:var(--text-subtle);margin-top:4px}
 .kpi.hero .kpi-sub{color:rgba(255,255,255,.7)}
 .kpi-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;vertical-align:middle}
-
-/* ============ CHART ============ */
 .chart-box{position:relative;width:100%;height:340px}
 .chart-box.tall{height:460px}
 .legend{display:flex;justify-content:center;gap:20px;font-size:12px;margin-top:10px;color:var(--text-muted);flex-wrap:wrap}
 .legend-item{display:inline-flex;align-items:center;gap:6px}
 .legend-swatch{display:inline-block;width:16px;height:10px;border-radius:2px}
-
-/* ============ STATUS ============ */
-.status-pill{display:inline-flex;align-items:center;gap:6px;font-size:11px;color:var(--text-muted);padding:5px 10px;border-radius:999px;background:rgba(255,255,255,.1)}
-.status-pill.ok{background:rgba(5,150,105,.15);color:#a7f3d0}
-.status-pill.err{background:rgba(220,38,38,.15);color:#fecaca}
-
-/* ============ BANNERS ============ */
+.status-pill{display:inline-flex;align-items:center;gap:6px;font-size:11px;color:rgba(255,255,255,.85);padding:5px 10px;border-radius:999px;background:rgba(255,255,255,.1)}
+.status-pill.ok{background:rgba(5,150,105,.25);color:#a7f3d0}
+.status-pill.err{background:rgba(220,38,38,.25);color:#fecaca}
 .banner{padding:12px 16px;border-radius:var(--radius);font-size:13px;margin-bottom:16px;display:none;border:1px solid transparent}
 .banner.visible{display:flex;align-items:center;gap:10px}
 .banner-error{background:var(--danger-bg);border-color:#fca5a5;color:#991b1b}
 .banner-info{background:var(--info-bg);border-color:#7dd3fc;color:#075985}
-
-/* ============ SPINNER ============ */
 .spinner{display:inline-block;width:12px;height:12px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:sp .6s linear infinite}
-.spinner.dark{border-color:rgba(31,95,58,.2);border-top-color:var(--brand)}
 @keyframes sp{to{transform:rotate(360deg)}}
-
-/* ============ TABLE ============ */
 table{width:100%;border-collapse:collapse;font-size:12.5px}
 th,td{padding:9px 12px;border-bottom:1px solid var(--border);white-space:nowrap;text-align:left}
 thead th{color:var(--text-muted);font-weight:600;font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;background:#f9fafb;position:sticky;top:0;z-index:1}
 tbody tr:hover{background:#fafbfc}
 .num{text-align:right;font-variant-numeric:tabular-nums}
 .scroll{max-height:520px;overflow:auto;border-radius:var(--radius);border:1px solid var(--border)}
-
-/* ============ FOOTER ============ */
 .page-footer{color:var(--text-subtle);font-size:11px;text-align:center;margin:24px 0 12px;padding-top:16px;border-top:1px solid var(--border)}
-
-/* Utilities */
 .hidden{display:none!important}
 </style>
 </head>
@@ -160,7 +117,7 @@ tbody tr:hover{background:#fafbfc}
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
         Friss adat
       </button>
-      <button id="refreshBtn" class="btn btn-ghost btn-sm" title="Újratölti a Sheets-ből">
+      <button id="refreshBtn" class="btn btn-ghost btn-sm" title="Újratölti a Sheets-ből" style="color:rgba(255,255,255,.85)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
         Frissít
       </button>
@@ -437,9 +394,9 @@ function applyFiltersAndRender(){
   document.getElementById('kpi_alu').textContent=fmt(tAlu);
   document.getElementById('kpi_glass').textContent=fmt(tGl);
   const pct=v=>total>0?(v/total*100).toFixed(1)+'%':'–';
-  document.getElementById('kpi_pet_sub').textContent=pct(tPet)+' • aránya';
-  document.getElementById('kpi_alu_sub').textContent=pct(tAlu)+' • aránya';
-  document.getElementById('kpi_glass_sub').textContent=pct(tGl)+' • aránya';
+  document.getElementById('kpi_pet_sub').textContent=pct(tPet)+' · aránya';
+  document.getElementById('kpi_alu_sub').textContent=pct(tAlu)+' · aránya';
+  document.getElementById('kpi_glass_sub').textContent=pct(tGl)+' · aránya';
   const storeName=filt.store==='all'?'Összes bolt ('+allStores.length+')':(()=>{const s=allStores.find(x=>x.poc===filt.store);return s?`Bolt ${s.bolt} (POC ${s.poc})`:'?';})();
   const monthsInRangeNames=hasData.map((b,i)=>b?MONTHS[i]:null).filter(Boolean).join(', ');
   currentFilterSummary = `${storeName} · ${filt.fromStr} – ${filt.toStr}`;
@@ -601,23 +558,72 @@ async function triggerFreshFetch(){
   }
 }
 
-/* ============ CHART LETÖLTÉS PNG-KÉNT ============ */
+/* ============ CHART LETÖLTÉS PNG-KÉNT (CÍMMEL A KÉPEN) ============ */
 function downloadChartPng(chartKey){
   const chart = co[chartKey];
   if(!chart){ showError('Ez a diagram még nincs kirajzolva.'); return; }
-  // Fehér háttéren renderelt PNG (a chart.js alapból átlátszó)
+
+  // Cím + alcím a kártya fejlécéből
+  const btn = document.querySelector(`[data-download-chart="${chartKey}"]`);
+  const card = btn.closest('.card');
+  const titleEl = card.querySelector('.card-header h2');
+  const subEl = card.querySelector('.card-header .sub');
+  const title = titleEl ? titleEl.textContent.trim() : '';
+  const sub = subEl ? subEl.textContent.trim() : '';
+
   const canvas = chart.canvas;
-  const w = canvas.width, h = canvas.height;
+  // devicePixelRatio-t figyelembe véve — a canvas.width már fizikai pixel
+  const dpr = window.devicePixelRatio || 1;
+  const w = canvas.width;
+  const h = canvas.height;
+
+  // Cím-terület (skálázva a dpr-rel, hogy éles legyen)
+  const titleHeight = Math.round(72 * dpr);
+  const footerHeight = Math.round(24 * dpr);
+
   const tmp = document.createElement('canvas');
-  tmp.width = w; tmp.height = h;
+  tmp.width = w;
+  tmp.height = h + titleHeight + footerHeight;
   const ctx = tmp.getContext('2d');
+
+  // Fehér háttér
   ctx.fillStyle = '#ffffff';
-  ctx.fillRect(0,0,w,h);
-  ctx.drawImage(canvas, 0, 0);
+  ctx.fillRect(0, 0, tmp.width, tmp.height);
+
+  // Bal oldalon egy vékony színes sáv (branding)
+  ctx.fillStyle = '#1f5f3a';
+  ctx.fillRect(0, 0, Math.round(4*dpr), tmp.height);
+
+  // Cím
+  ctx.fillStyle = '#0f172a';
+  ctx.font = `bold ${Math.round(20*dpr)}px "Inter", "Segoe UI", sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+  ctx.fillText(title, w/2, Math.round(14*dpr));
+
+  // Alcím
+  if (sub) {
+    ctx.fillStyle = '#64748b';
+    ctx.font = `${Math.round(13*dpr)}px "Inter", "Segoe UI", sans-serif`;
+    ctx.fillText(sub, w/2, Math.round(46*dpr));
+  }
+
+  // A diagram rajzolása a cím alá
+  ctx.drawImage(canvas, 0, titleHeight);
+
+  // Lábléc
+  ctx.fillStyle = '#94a3b8';
+  ctx.font = `${Math.round(10*dpr)}px "Inter", "Segoe UI", sans-serif`;
+  ctx.textAlign = 'right';
+  const stamp = new Date().toLocaleString('hu-HU');
+  ctx.fillText(`DRS Dashboard · ${stamp}`, w - Math.round(12*dpr), h + titleHeight + Math.round(6*dpr));
+
+  // Letöltés
   const url = tmp.toDataURL('image/png', 1);
   const a = document.createElement('a');
-  const stamp = new Date().toISOString().slice(0,16).replace(/[:T]/g,'-');
-  a.download = `DRS_${chartKey}_${stamp}.png`;
+  const stampFile = new Date().toISOString().slice(0,16).replace(/[:T]/g,'-');
+  const safeTitle = title.toLowerCase().replace(/[^\w\-]+/g,'_').slice(0,40);
+  a.download = `DRS_${safeTitle}_${stampFile}.png`;
   a.href = url;
   a.click();
 }
@@ -627,8 +633,12 @@ function exportTableXlsx(){
   const tbl = document.getElementById('dataTable');
   if(!tbl){ showError('Nincs táblázat.'); return; }
   const wb = XLSX.utils.table_to_book(tbl, { sheet: 'DRS' });
-  // Add a header row with the filter info as second sheet
-  const meta = [['DRS Göngyöleg — Részletes táblázat'], [document.getElementById('tableSub').textContent], [''], ['Exportálva:', new Date().toLocaleString('hu-HU')]];
+  const meta = [
+    ['DRS Göngyöleg — Részletes táblázat'],
+    [document.getElementById('tableSub').textContent],
+    [''],
+    ['Exportálva:', new Date().toLocaleString('hu-HU')]
+  ];
   const wsInfo = XLSX.utils.aoa_to_sheet(meta);
   XLSX.utils.book_append_sheet(wb, wsInfo, 'Info');
   const filterStr = currentFilterSummary.replace(/[^\w\-]/g,'_').slice(0,40);
@@ -636,7 +646,6 @@ function exportTableXlsx(){
   XLSX.writeFile(wb, `DRS_reszletes_${filterStr}_${stamp}.xlsx`);
 }
 
-/* ============ EVENT LISTENER-EK ============ */
 document.getElementById('applyFilter').onclick=applyFiltersAndRender;
 document.getElementById('storePick').onchange=applyFiltersAndRender;
 document.getElementById('fromDate').onchange=applyFiltersAndRender;
