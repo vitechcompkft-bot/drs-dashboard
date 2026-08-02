@@ -100,7 +100,9 @@ thead th{color:var(--muted);font-weight:600;font-size:11px;text-transform:upperc
 
 <div class="card"><div class="chart-title">Havi bontás<br><span id="t1sub" style="font-weight:400"></span></div><div class="chart-box"><canvas id="c1"></canvas></div><div class="legend"><span class="legend-item"><span class="legend-swatch" style="background:#1f5f3a"></span>Pet</span><span class="legend-item"><span class="legend-swatch" style="background:#d4a017"></span>Alu</span><span class="legend-item"><span class="legend-swatch" style="background:#2f5b9a"></span>Üveg</span></div></div>
 
-<div class="card" id="storeChartCard"><div class="chart-title">Boltonkénti összesítés<br><span id="t2sub" style="font-weight:400"></span></div><div class="chart-box tall"><canvas id="c2"></canvas></div><div class="legend"><span class="legend-item"><span class="legend-swatch" style="background:#1f5f3a"></span>Pet</span><span class="legend-item"><span class="legend-swatch" style="background:#d4a017"></span>Alu</span><span class="legend-item"><span class="legend-swatch" style="background:#2f5b9a"></span>Üveg</span></div></div>
+<div class="card" id="storeChartCard"><div class="chart-title">Boltonkénti összesítés — kiválasztott időszak<br><span id="t2sub" style="font-weight:400"></span></div><div class="chart-box tall"><canvas id="c2"></canvas></div><div class="legend"><span class="legend-item"><span class="legend-swatch" style="background:#1f5f3a"></span>Pet</span><span class="legend-item"><span class="legend-swatch" style="background:#d4a017"></span>Alu</span><span class="legend-item"><span class="legend-swatch" style="background:#2f5b9a"></span>Üveg</span></div></div>
+
+<div class="card" id="storeCumChartCard"><div class="chart-title">Boltonkénti halmozott — év eleje óta<br><span id="t2cumsub" style="font-weight:400"></span></div><div class="chart-box tall"><canvas id="c2cum"></canvas></div><div class="legend"><span class="legend-item"><span class="legend-swatch" style="background:#1f5f3a"></span>Pet</span><span class="legend-item"><span class="legend-swatch" style="background:#d4a017"></span>Alu</span><span class="legend-item"><span class="legend-swatch" style="background:#2f5b9a"></span>Üveg</span></div></div>
 
 <div class="card"><div class="chart-title">Halmozott alakulás<br><span id="t3sub" style="font-weight:400"></span></div><div class="chart-box"><canvas id="c3"></canvas></div><div class="legend"><span class="legend-item"><span class="legend-swatch" style="background:#1f5f3a"></span>Pet</span><span class="legend-item"><span class="legend-swatch" style="background:#d4a017"></span>Alu</span><span class="legend-item"><span class="legend-swatch" style="background:#2f5b9a"></span>Üveg</span><span class="legend-item"><span class="legend-swatch" style="background:#22c55e"></span>Összesen</span></div></div>
 
@@ -110,7 +112,6 @@ thead th{color:var(--muted);font-weight:600;font-size:11px;text-transform:upperc
 </div>
 
 <script>
-/* ============ KONFIG ============ */
 const SHEETS_ID = '1DMQyUaOm-9Zx8S3Zu8dZNQ1svqa50GrcnELSyIQpfCY';
 const SHEET_NAME = 'DRS göngyölegek 2026';
 const META_SHEET_NAME = 'Metadata';
@@ -200,12 +201,8 @@ function parseSheet(table){
   if(petCols.length>12) petCols.length=12;
   if(pocCol<0) throw new Error('Nem találom a POC oszlopot.');
   if(petCols.length<1) throw new Error('Nem találom a "Pet palack" oszlopokat.');
-
   const monthCols={};
-  petCols.forEach((petIdx, monthIdx)=>{
-    monthCols[monthIdx] = { pet: petIdx, alu: petIdx+1, glass: petIdx+2 };
-  });
-
+  petCols.forEach((petIdx, monthIdx)=>{ monthCols[monthIdx] = { pet: petIdx, alu: petIdx+1, glass: petIdx+2 }; });
   const stores=[];
   rows.forEach(row=>{
     const poc=row[pocCol];
@@ -218,14 +215,8 @@ function parseSheet(table){
       const pet=Number(row[c.pet])||0,alu=Number(row[c.alu])||0,gl=Number(row[c.glass])||0;
       months.push((pet+alu+gl)>0?[pet,alu,gl]:null);
     }
-    stores.push({
-      sor: sorCol>=0 ? (row[sorCol]||'') : '',
-      bolt: boltCol>=0 ? String(row[boltCol]||'') : '',
-      poc: String(poc),
-      months
-    });
+    stores.push({ sor: sorCol>=0?(row[sorCol]||''):'', bolt: boltCol>=0?String(row[boltCol]||''):'', poc: String(poc), months });
   });
-  // Bolt számok szerint növekvő sorrend (numerikus)
   stores.sort((a,b) => (parseInt(a.bolt,10)||0) - (parseInt(b.bolt,10)||0));
   return stores;
 }
@@ -260,13 +251,15 @@ function getFilters(){
   const fromDate=fromStr?new Date(fromStr):null;
   const toDate=toStr?new Date(toStr):null;
   const monthsInRange=new Array(12).fill(false);
+  let lastMonthIdx = -1;
   for(let mi=0;mi<12;mi++){
     const monthStart=new Date(dataYear, mi, 1);
     const monthEnd=new Date(dataYear, mi+1, 0);
     const inRange=(!fromDate || monthEnd>=fromDate) && (!toDate || monthStart<=toDate);
     monthsInRange[mi]=inRange;
+    if (inRange) lastMonthIdx = mi;
   }
-  return {store, fromDate, toDate, monthsInRange, fromStr, toStr};
+  return {store, fromDate, toDate, monthsInRange, fromStr, toStr, lastMonthIdx};
 }
 
 function applyFiltersAndRender(){
@@ -292,18 +285,20 @@ function applyFiltersAndRender(){
   const monthsInRangeNames=hasData.map((b,i)=>b?MONTHS[i]:null).filter(Boolean).join(', ');
   document.getElementById('filterSummary').innerHTML =`<b>${storeName}</b> &nbsp;|&nbsp; ${filt.fromStr} – ${filt.toStr} &nbsp;|&nbsp; érintett hónapok: ${monthsInRangeNames||'–'}`;
   document.getElementById('kpi_total_sub').textContent = storeName + ' • ' + (monthsInRangeNames || '–');
-  renderCharts(data, mt, hasData, filt, storeName);
+  renderCharts(data, filteredStores, mt, hasData, filt, storeName);
   renderTable(data, filt);
 }
 
 let co={};
-function renderCharts(stores, mt, hasData, filt, storeName){
+function renderCharts(stores, storesUnfiltered, mt, hasData, filt, storeName){
   const activeMonthIdx = mt.map((m,i)=>hasData[i]?i:-1).filter(i=>i>=0);
   const labels = activeMonthIdx.map(i=>MONTHS[i]);
   const petArr = activeMonthIdx.map(i=>mt[i][0]);
   const aluArr = activeMonthIdx.map(i=>mt[i][1]);
   const glArr = activeMonthIdx.map(i=>mt[i][2]);
   const base=(extra={})=>({responsive:true,maintainAspectRatio:false,animation:false,resizeDelay:120,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`${c.dataset.label||''}: ${fmt(c.parsed.y??c.parsed.x??c.parsed)}`}}},scales:{x:{ticks:{color:'#1f2937',font:{size:11}},grid:{color:'#eee'}},y:{ticks:{color:'#1f2937',font:{size:11},callback:v=>fmt(v)},grid:{color:'#eee'},beginAtZero:true}},...extra});
+
+  // ---- c1: havi bontás ----
   document.getElementById('t1sub').textContent = storeName + ' • ' + filt.fromStr + ' – ' + filt.toStr;
   if(co.c1) co.c1.destroy();
   const c1Type = labels.length <= 3 ? 'bar' : 'line';
@@ -313,9 +308,7 @@ function renderCharts(stores, mt, hasData, filt, storeName){
     c1Type==='line'?{label:'Üveg',data:glArr,borderColor:GL,backgroundColor:GL,pointBackgroundColor:GL,tension:0,pointRadius:5,fill:false,borderWidth:2.5}:{label:'Üveg',data:glArr,backgroundColor:GL,categoryPercentage:.7,barPercentage:.85},
   ]},options:base()});
 
-  // ====== BOLTONKÉNTI DIAGRAM (v7 változás) ======
-  // - Minden bolt látszik (nincs 0-szűrő)
-  // - Bolt szám szerint NÖVEKVŐ sorrend
+  // ---- c2: Boltonkénti — KIVÁLASZTOTT IDŐSZAK ----
   const storeTotals = stores.map(s=>{
     let pet=0,alu=0,gl=0;
     s.months.forEach(m=>{if(m){pet+=m[0]||0;alu+=m[1]||0;gl+=m[2]||0;}});
@@ -337,6 +330,34 @@ function renderCharts(stores, mt, hasData, filt, storeName){
     },options:base()});
   } else { c2Card.style.display='none'; }
 
+  // ---- c2cum: Boltonkénti — HALMOZOTT JANUÁRTÓL A ZÁRÓ HÓNAPIG ----
+  // Az UNFILTERED (teljes évi) adatból számolunk, január 0. hónaptól a záró hónapig
+  const endMonthForCum = filt.lastMonthIdx >= 0 ? filt.lastMonthIdx : 11;
+  const storeCumTotals = storesUnfiltered.map(s=>{
+    let pet=0,alu=0,gl=0;
+    for(let i=0; i<=endMonthForCum; i++){
+      const m=s.months[i];
+      if(m){pet+=m[0]||0;alu+=m[1]||0;gl+=m[2]||0;}
+    }
+    return {bolt:s.bolt, poc:s.poc, pet, alu, gl, total:pet+alu+gl};
+  }).sort((a,b) => (parseInt(a.bolt,10)||0) - (parseInt(b.bolt,10)||0));
+
+  const c2cumCard = document.getElementById('storeCumChartCard');
+  if(filt.store==='all' && storeCumTotals.length>1) {
+    c2cumCard.style.display='';
+    document.getElementById('t2cumsub').textContent = 'Halmozott: Január – ' + MONTHS[endMonthForCum] + ' • ' + storeCumTotals.length + ' bolt (bolt szám szerint)';
+    if(co.c2cum) co.c2cum.destroy();
+    co.c2cum = new Chart(document.getElementById('c2cum'),{type:'bar',data:{
+      labels: storeCumTotals.map(s=>s.bolt),
+      datasets:[
+        {label:'Pet',data:storeCumTotals.map(s=>s.pet),backgroundColor:PET,categoryPercentage:.88,barPercentage:.95},
+        {label:'Alu',data:storeCumTotals.map(s=>s.alu),backgroundColor:ALU,categoryPercentage:.88,barPercentage:.95},
+        {label:'Üveg',data:storeCumTotals.map(s=>s.gl),backgroundColor:GL,categoryPercentage:.88,barPercentage:.95}
+      ]
+    },options:base()});
+  } else { c2cumCard.style.display='none'; }
+
+  // ---- c3: Halmozott alakulás (havi kumulatív) ----
   let cumPet=0,cumAlu=0,cumGl=0,cumTot=0;
   const cumLabels=[], cumPetArr=[], cumAluArr=[], cumGlArr=[], cumTotArr=[];
   activeMonthIdx.forEach(i=>{
@@ -360,7 +381,6 @@ function renderTable(stores, filt){
   const visMonths = [];
   for(let mi=0;mi<12;mi++){ if(filt.monthsInRange[mi]) visMonths.push(mi); }
   thead.innerHTML = '<tr><th>Bolt</th><th>POC</th>' + visMonths.map(mi=>`<th class="num">${MONTHS_SHORT[mi]}</th>`).join('') + '<th class="num">PET</th><th class="num">Alu</th><th class="num">Üveg</th><th class="num">Összes</th></tr>';
-  // Táblázat: minden bolt (nincs 0-szűrő), bolt szám szerint növekvő
   const sortedStores = [...stores].sort((a,b) => (parseInt(a.bolt,10)||0) - (parseInt(b.bolt,10)||0));
   const rows = sortedStores.map(s=>{
     let pet=0,alu=0,gl=0;
