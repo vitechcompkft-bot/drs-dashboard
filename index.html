@@ -114,12 +114,9 @@ thead th{color:var(--muted);font-weight:600;font-size:11px;text-transform:upperc
 const SHEETS_ID = '1DMQyUaOm-9Zx8S3Zu8dZNQ1svqa50GrcnELSyIQpfCY';
 const SHEET_NAME = 'DRS göngyölegek 2026';
 const META_SHEET_NAME = 'Metadata';
-// Apps Script webhook URL (a meglévő /exec URL-ed) — manuális Envipco letöltéshez
 const WEBHOOK_URL = 'https://script.google.com/macros/s/AKfycbyf5RXTMi4D9HOSuDIeaVOCobkQ1m6G1dJxcrUiBrnb60-2GOzkJ0CsvJtQxU9lvTeleA/exec';
-// A trigger secret a dashboard-ban van — más mint az UPLOAD_SECRET, csak workflow-trigger jogot ad
 const TRIGGER_SECRET = '38ce698cb8cc44838040cb39fb249b78';
 
-/* ============ ÁLLANDÓK ============ */
 const MONTHS=["Január","Február","Március","Április","Május","Június","Július","Augusztus","Szeptember","Október","November","December"];
 const MONTHS_SHORT=["Jan","Feb","Már","Ápr","Máj","Jún","Júl","Aug","Sze","Okt","Nov","Dec"];
 const PET='#1f5f3a',ALU='#d4a017',GL='#2f5b9a',TOTAL='#22c55e';
@@ -133,7 +130,6 @@ function clearInfo(){document.getElementById('infoBanner').classList.remove('vis
 
 let allStores=[], dataYear=2026;
 
-/* ============ JSONP HÍVÁS ============ */
 function loadGvizJSONP(sheetName, timeoutMs=15000){
   return new Promise((resolve, reject)=>{
     const cbName='__gviz_cb_'+Date.now()+'_'+Math.floor(Math.random()*1e6);
@@ -163,7 +159,6 @@ function callAppsScriptJSONP(params, timeoutMs=30000){
   });
 }
 
-/* ============ ADAT BETÖLTÉS ============ */
 async function fetchMainSheet(){
   const data = await loadGvizJSONP(SHEET_NAME);
   if(!data||data.status==='error'){
@@ -230,6 +225,8 @@ function parseSheet(table){
       months
     });
   });
+  // Bolt számok szerint növekvő sorrend (numerikus)
+  stores.sort((a,b) => (parseInt(a.bolt,10)||0) - (parseInt(b.bolt,10)||0));
   return stores;
 }
 
@@ -315,14 +312,31 @@ function renderCharts(stores, mt, hasData, filt, storeName){
     c1Type==='line'?{label:'Alu',data:aluArr,borderColor:ALU,backgroundColor:ALU,pointBackgroundColor:ALU,tension:0,pointRadius:5,fill:false,borderWidth:2.5}:{label:'Alu',data:aluArr,backgroundColor:ALU,categoryPercentage:.7,barPercentage:.85},
     c1Type==='line'?{label:'Üveg',data:glArr,borderColor:GL,backgroundColor:GL,pointBackgroundColor:GL,tension:0,pointRadius:5,fill:false,borderWidth:2.5}:{label:'Üveg',data:glArr,backgroundColor:GL,categoryPercentage:.7,barPercentage:.85},
   ]},options:base()});
-  const storeTotals = stores.map(s=>{let pet=0,alu=0,gl=0;s.months.forEach(m=>{if(m){pet+=m[0]||0;alu+=m[1]||0;gl+=m[2]||0;}});return {bolt:s.bolt, poc:s.poc, pet, alu, gl, total:pet+alu+gl};}).filter(s=>s.total>0).sort((a,b)=>b.total-a.total);
+
+  // ====== BOLTONKÉNTI DIAGRAM (v7 változás) ======
+  // - Minden bolt látszik (nincs 0-szűrő)
+  // - Bolt szám szerint NÖVEKVŐ sorrend
+  const storeTotals = stores.map(s=>{
+    let pet=0,alu=0,gl=0;
+    s.months.forEach(m=>{if(m){pet+=m[0]||0;alu+=m[1]||0;gl+=m[2]||0;}});
+    return {bolt:s.bolt, poc:s.poc, pet, alu, gl, total:pet+alu+gl};
+  }).sort((a,b) => (parseInt(a.bolt,10)||0) - (parseInt(b.bolt,10)||0));
+
   const c2Card = document.getElementById('storeChartCard');
   if(filt.store==='all' && storeTotals.length>1) {
     c2Card.style.display='';
-    document.getElementById('t2sub').textContent = 'Időszak: ' + filt.fromStr + ' – ' + filt.toStr + ' • ' + storeTotals.length + ' bolt rangsorolva';
+    document.getElementById('t2sub').textContent = 'Időszak: ' + filt.fromStr + ' – ' + filt.toStr + ' • ' + storeTotals.length + ' bolt (bolt szám szerint)';
     if(co.c2) co.c2.destroy();
-    co.c2 = new Chart(document.getElementById('c2'),{type:'bar',data:{labels: storeTotals.map(s=>'B'+s.bolt),datasets:[{label:'Pet',data:storeTotals.map(s=>s.pet),backgroundColor:PET,categoryPercentage:.88,barPercentage:.95},{label:'Alu',data:storeTotals.map(s=>s.alu),backgroundColor:ALU,categoryPercentage:.88,barPercentage:.95},{label:'Üveg',data:storeTotals.map(s=>s.gl),backgroundColor:GL,categoryPercentage:.88,barPercentage:.95}]},options:base()});
+    co.c2 = new Chart(document.getElementById('c2'),{type:'bar',data:{
+      labels: storeTotals.map(s=>s.bolt),
+      datasets:[
+        {label:'Pet',data:storeTotals.map(s=>s.pet),backgroundColor:PET,categoryPercentage:.88,barPercentage:.95},
+        {label:'Alu',data:storeTotals.map(s=>s.alu),backgroundColor:ALU,categoryPercentage:.88,barPercentage:.95},
+        {label:'Üveg',data:storeTotals.map(s=>s.gl),backgroundColor:GL,categoryPercentage:.88,barPercentage:.95}
+      ]
+    },options:base()});
   } else { c2Card.style.display='none'; }
+
   let cumPet=0,cumAlu=0,cumGl=0,cumTot=0;
   const cumLabels=[], cumPetArr=[], cumAluArr=[], cumGlArr=[], cumTotArr=[];
   activeMonthIdx.forEach(i=>{
@@ -346,13 +360,15 @@ function renderTable(stores, filt){
   const visMonths = [];
   for(let mi=0;mi<12;mi++){ if(filt.monthsInRange[mi]) visMonths.push(mi); }
   thead.innerHTML = '<tr><th>Bolt</th><th>POC</th>' + visMonths.map(mi=>`<th class="num">${MONTHS_SHORT[mi]}</th>`).join('') + '<th class="num">PET</th><th class="num">Alu</th><th class="num">Üveg</th><th class="num">Összes</th></tr>';
-  const rows = stores.map(s=>{
+  // Táblázat: minden bolt (nincs 0-szűrő), bolt szám szerint növekvő
+  const sortedStores = [...stores].sort((a,b) => (parseInt(a.bolt,10)||0) - (parseInt(b.bolt,10)||0));
+  const rows = sortedStores.map(s=>{
     let pet=0,alu=0,gl=0;
     s.months.forEach(m=>{if(m){pet+=m[0]||0;alu+=m[1]||0;gl+=m[2]||0;}});
     const total=pet+alu+gl;
     const monthsHtml = visMonths.map(mi=>{const m=s.months[mi];return `<td class="num">${m?fmt((m[0]||0)+(m[1]||0)+(m[2]||0)):''}</td>`;}).join('');
-    return {total, html:`<tr><td><b>${s.bolt}</b></td><td>${s.poc}</td>${monthsHtml}<td class="num">${fmt(pet)}</td><td class="num">${fmt(alu)}</td><td class="num">${fmt(gl)}</td><td class="num"><b>${fmt(total)}</b></td></tr>`};
-  }).filter(r=>r.total>0).sort((a,b)=>b.total-a.total);
+    return `<tr><td><b>${s.bolt}</b></td><td>${s.poc}</td>${monthsHtml}<td class="num">${fmt(pet)}</td><td class="num">${fmt(alu)}</td><td class="num">${fmt(gl)}</td><td class="num"><b>${fmt(total)}</b></td></tr>`;
+  }).join('');
   let tPet=0,tAlu=0,tGl=0;
   const monthlyTotals=visMonths.map(()=>0);
   stores.forEach(s=>{
@@ -363,21 +379,16 @@ function renderTable(stores, filt){
   const sumRow=`<tr style="background:#e8f3eb;font-weight:600"><td colspan="2"><b>ÖSSZESEN</b></td>` +
     monthlyTotals.map(v=>`<td class="num">${v?fmt(v):''}</td>`).join('') +
     `<td class="num"><b>${fmt(tPet)}</b></td><td class="num"><b>${fmt(tAlu)}</b></td><td class="num"><b>${fmt(tGl)}</b></td><td class="num"><b>${fmt(grand)}</b></td></tr>`;
-  tbody.innerHTML = rows.map(r=>r.html).join('') + sumRow;
+  tbody.innerHTML = rows + sumRow;
 }
 
-/* ============ FŐ BETÖLTÉS ============ */
 async function load(){
   clearError();
   setStatus('<span class="spinner"></span>Betöltés…');
   document.getElementById('srcLabel').textContent = SHEET_NAME + ' • ' + SHEETS_ID.slice(0,8) + '…';
-
-  // Metadata
   const meta = await fetchMetadata();
   document.getElementById('metaLastUpdate').textContent = meta.last_update || '–';
   document.getElementById('metaLastData').textContent = meta.last_data_date || '–';
-
-  // Adat
   try{
     const tbl = await fetchMainSheet();
     let stores;
@@ -393,7 +404,6 @@ async function load(){
   } catch(e){ setStatus('❌ Hiba','err'); showError(e.message); }
 }
 
-/* ============ MANUÁLIS ENVIPCO LETÖLTÉS ============ */
 async function triggerFreshFetch(){
   const btn = document.getElementById('fetchFreshBtn');
   btn.disabled = true;
@@ -416,7 +426,6 @@ async function triggerFreshFetch(){
   }
 }
 
-/* ============ EVENT LISTENER-EK ============ */
 document.getElementById('applyFilter').onclick=applyFiltersAndRender;
 document.getElementById('storePick').onchange=applyFiltersAndRender;
 document.getElementById('fromDate').onchange=applyFiltersAndRender;
