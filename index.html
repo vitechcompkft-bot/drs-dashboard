@@ -235,7 +235,7 @@ const SHEETS_ID = '1DMQyUaOm-9Zx8S3Zu8dZNQ1svqa50GrcnELSyIQpfCY';
 const SHEET_NAME = 'DRS göngyölegek 2026';
 const META_SHEET_NAME = 'Metadata';
 const WEBHOOK_URL = 'https://script.google.com/macros/s/AKfycbyf5RXTMi4D9HOSuDIeaVOCobkQ1m6G1dJxcrUiBrnb60-2GOzkJ0CsvJtQxU9lvTeleA/exec';
-const TRIGGER_SECRET = '38ce698cb8cc44838040cb39fb249b78';
+const TRIGGER_SECRET = 'IDE_ÍRD_BE_A_TRIGGER_SECRET_T';
 
 const MONTHS=["Január","Február","Március","Április","Május","Június","Július","Augusztus","Szeptember","Október","November","December"];
 const MONTHS_SHORT=["Jan","Feb","Már","Ápr","Máj","Jún","Júl","Aug","Sze","Okt","Nov","Dec"];
@@ -558,65 +558,102 @@ async function triggerFreshFetch(){
   }
 }
 
-/* ============ CHART LETÖLTÉS PNG-KÉNT (CÍMMEL A KÉPEN) ============ */
+/* ============ CHART LETÖLTÉS PNG-KÉNT (CÍMMEL + JELMAGYARÁZATTAL) ============ */
 function downloadChartPng(chartKey){
   const chart = co[chartKey];
   if(!chart){ showError('Ez a diagram még nincs kirajzolva.'); return; }
 
-  // Cím + alcím a kártya fejlécéből
+  // Cím + alcím + jelmagyarázat a kártyából
   const btn = document.querySelector(`[data-download-chart="${chartKey}"]`);
   const card = btn.closest('.card');
   const titleEl = card.querySelector('.card-header h2');
   const subEl = card.querySelector('.card-header .sub');
+  const legendEl = card.querySelector('.legend');
   const title = titleEl ? titleEl.textContent.trim() : '';
   const sub = subEl ? subEl.textContent.trim() : '';
 
-  const canvas = chart.canvas;
-  // devicePixelRatio-t figyelembe véve — a canvas.width már fizikai pixel
-  const dpr = window.devicePixelRatio || 1;
-  const w = canvas.width;
-  const h = canvas.height;
+  // Jelmagyarázat elemek (szín + felirat) beolvasása a DOM-ból
+  const legendItems = legendEl ? Array.from(legendEl.querySelectorAll('.legend-item')).map(el=>{
+    const sw = el.querySelector('.legend-swatch');
+    const color = sw ? getComputedStyle(sw).backgroundColor : '#000';
+    return { color, label: el.textContent.trim() };
+  }) : [];
 
-  // Cím-terület (skálázva a dpr-rel, hogy éles legyen)
-  const titleHeight = Math.round(72 * dpr);
-  const footerHeight = Math.round(24 * dpr);
+  const canvas = chart.canvas;
+  const dpr = window.devicePixelRatio || 1;
+  const chartW = canvas.width;
+  const chartH = canvas.height;
+
+  // Elrendezési paraméterek (dpr-rel skálázva)
+  const sidePad = Math.round(28 * dpr);       // oldalsó padding — hogy a tengelyfeliratok bal széle beférjen
+  const titleHeight = Math.round(80 * dpr);
+  const legendHeight = legendItems.length ? Math.round(46 * dpr) : 0;
+  const footerHeight = Math.round(28 * dpr);
+  const brandBarW = Math.round(4 * dpr);
 
   const tmp = document.createElement('canvas');
-  tmp.width = w;
-  tmp.height = h + titleHeight + footerHeight;
+  tmp.width = chartW + sidePad * 2;
+  tmp.height = chartH + titleHeight + legendHeight + footerHeight;
   const ctx = tmp.getContext('2d');
 
   // Fehér háttér
   ctx.fillStyle = '#ffffff';
   ctx.fillRect(0, 0, tmp.width, tmp.height);
 
-  // Bal oldalon egy vékony színes sáv (branding)
+  // Bal oldali branding sáv
   ctx.fillStyle = '#1f5f3a';
-  ctx.fillRect(0, 0, Math.round(4*dpr), tmp.height);
+  ctx.fillRect(0, 0, brandBarW, tmp.height);
 
-  // Cím
+  // Cím (középre)
   ctx.fillStyle = '#0f172a';
   ctx.font = `bold ${Math.round(20*dpr)}px "Inter", "Segoe UI", sans-serif`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'top';
-  ctx.fillText(title, w/2, Math.round(14*dpr));
+  ctx.fillText(title, tmp.width/2, Math.round(18*dpr));
 
-  // Alcím
+  // Alcím (középre)
   if (sub) {
     ctx.fillStyle = '#64748b';
     ctx.font = `${Math.round(13*dpr)}px "Inter", "Segoe UI", sans-serif`;
-    ctx.fillText(sub, w/2, Math.round(46*dpr));
+    ctx.fillText(sub, tmp.width/2, Math.round(50*dpr));
   }
 
-  // A diagram rajzolása a cím alá
-  ctx.drawImage(canvas, 0, titleHeight);
+  // Diagram — oldalpaddinggal, hogy semmi ne csússzon le
+  ctx.drawImage(canvas, sidePad, titleHeight);
 
-  // Lábléc
+  // Jelmagyarázat a diagram alatt (középre igazítva)
+  if (legendItems.length) {
+    const swatchW = Math.round(20 * dpr);
+    const swatchH = Math.round(11 * dpr);
+    const swGap = Math.round(8 * dpr);       // swatch és felirat között
+    const itemGap = Math.round(28 * dpr);    // elemek között
+    ctx.font = `${Math.round(13*dpr)}px "Inter", "Segoe UI", sans-serif`;
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'left';
+
+    // Össz-szélesség mérése a középre igazításhoz
+    const widths = legendItems.map(it => swatchW + swGap + ctx.measureText(it.label).width);
+    const totalW = widths.reduce((a,b)=>a+b, 0) + itemGap * (legendItems.length - 1);
+
+    let x = (tmp.width - totalW) / 2;
+    const y = titleHeight + chartH + legendHeight / 2;
+
+    legendItems.forEach((it, i) => {
+      ctx.fillStyle = it.color;
+      ctx.fillRect(x, y - swatchH/2, swatchW, swatchH);
+      ctx.fillStyle = '#475569';
+      ctx.fillText(it.label, x + swatchW + swGap, y);
+      x += widths[i] + itemGap;
+    });
+  }
+
+  // Lábléc (jobbra igazítva a legalján)
   ctx.fillStyle = '#94a3b8';
   ctx.font = `${Math.round(10*dpr)}px "Inter", "Segoe UI", sans-serif`;
   ctx.textAlign = 'right';
+  ctx.textBaseline = 'top';
   const stamp = new Date().toLocaleString('hu-HU');
-  ctx.fillText(`DRS Dashboard · ${stamp}`, w - Math.round(12*dpr), h + titleHeight + Math.round(6*dpr));
+  ctx.fillText(`DRS Dashboard · ${stamp}`, tmp.width - Math.round(14*dpr), tmp.height - footerHeight + Math.round(8*dpr));
 
   // Letöltés
   const url = tmp.toDataURL('image/png', 1);
